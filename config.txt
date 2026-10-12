@@ -1,16 +1,16 @@
 Seed           1337
-NumBirds       150
-TotalSteps     10000
-LogSteps       100
-SaveSteps      1000
-BoxSize        50.0
+NumBirds       100
+TotalSteps     1000
+LogSteps       50
+SaveSteps      200
+BoxSize        30.0
 TimeStep       0.001
-Inertia        0.8
+Inertia        1.0
 Friction       1.0
-Temperature    0.05
+Temperature    0.0
 Interaction    1.0
 MaxSpeed       1.0
 HarmonicK      0.0
-QuarticK       0.02    # Steep r^4 confinement well
-RadialStr      0.005   # Central attraction/repulsion force
-SwirlStr       0.15    # Tangential swirling force component
+QuarticK       0.05
+RadialStr      0.0
+SwirlStr       0.1

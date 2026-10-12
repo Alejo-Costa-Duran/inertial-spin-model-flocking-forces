@@ -10,7 +10,7 @@ Simulation::Simulation(const std::string& sim_file) {
     readSimFile(simulationConfigFile);
 }
 
-void Simulation::set_par(std::string par, double value) {
+void Simulation::set_par(const std::string& par, double value) {
     parameters[par] = value;
 }
 

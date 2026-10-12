@@ -4,7 +4,7 @@
 #include <chrono>
 
 int main(int arg_count, char* args[]) {
-    if (arg_count > 1) {
+    if (arg_count > 3) {
         std::string folder = args[1];
         std::string data_file = args[3];
         std::cout << "Saving files to directory: " << folder << "\n";
@@ -16,17 +16,20 @@ int main(int arg_count, char* args[]) {
         
         for (auto chi : inertias) {
             for (auto f : fields) {
-                int seed = rand();
+                int seed = 1337 + counter;
                 s.set_par("Inertia", chi);
-                s.set_par("Field", f);
+                s.set_par("QuarticK", f); // Maps your loop variable 'f' to our quartic confinement/field parameter
                 s.set_par("Seed", seed);
                 
                 std::string run_id = std::to_string(counter);
                 run_id.insert(0, 3 - run_id.length(), '0');
                 counter++;
                 
+                std::string run_folder = folder + "/run_" + run_id;
+                // Create subfolders or pass folder path accordingly
+                
                 auto start = std::chrono::high_resolution_clock::now();
-                s.simMosquito(s.parameters, folder, run_id, "/Info");
+                s.runSimulation(folder); // Calls the refactored simulation runner
                 auto stop = std::chrono::high_resolution_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
                 
@@ -34,7 +37,7 @@ int main(int arg_count, char* args[]) {
             }
         }
     } else {
-        std::cout << "Usage: <executable> <output_folder> <dummy> <params_file>\n";
+        std::cout << "Usage: ism_batch <output_folder> <dummy> <params_file>\n";
         return 1;
     }
     return 0;

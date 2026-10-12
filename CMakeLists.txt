@@ -16,7 +16,7 @@ add_library(ism_core
     src/bird.cpp
     src/flock.cpp
     src/simulation.cpp
-    src/forfield.cpp
+    src/forcefield.cpp
 )
 target_include_directories(ism_core PUBLIC include)
 target_link_libraries(ism_core PUBLIC GSL::gsl GSL::gslcblas)
