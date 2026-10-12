@@ -7,15 +7,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Option to enable/disable SFML visualization (useful for headless servers)
 option(ENABLE_VISUALIZATION "Build the interactive SFML visualizer target" ON)
 
-# Find GSL (Required for stochastic forces and random generators)[cite: 14]
+# Find GSL (Required for stochastic forces and random generators)
 find_package(GSL REQUIRED)
 
 # 1. Core Physics Simulation Library (Headless-safe)
 add_library(ism_core
-    src/PVector.cpp
-    src/Bird.cpp
-    src/Flock.cpp
-    src/Simulation.cpp
+    src/pvector.cpp
+    src/bird.cpp
+    src/flock.cpp
+    src/simulation.cpp
+    src/forfield.cpp
 )
 target_include_directories(ism_core PUBLIC include)
 target_link_libraries(ism_core PUBLIC GSL::gsl GSL::gslcblas)
