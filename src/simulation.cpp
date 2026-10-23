@@ -1,4 +1,5 @@
 #include "simulation.h"
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -37,11 +38,13 @@ void Simulation::readSimFile(const std::string& file) {
 
 void Simulation::runSimulation(const std::string& outputFolder) {
     // 1. Extract configuration parameters with default fallbacks
+    std::filesystem::create_directories(outputFolder);
     int seed = static_cast<int>(parameters.count("Seed") ? parameters["Seed"] : 42);
     int numBirds = static_cast<int>(parameters.count("NumBirds") ? parameters["NumBirds"] : 100);
     int totalSteps = static_cast<int>(parameters.count("TotalSteps") ? parameters["TotalSteps"] : 10000);
     int logSteps = static_cast<int>(parameters.count("LogSteps") ? parameters["LogSteps"] : 100);
     int saveSteps = static_cast<int>(parameters.count("SaveSteps") ? parameters["SaveSteps"] : 1000);
+
     
     double boxSize = parameters.count("BoxSize") ? parameters["BoxSize"] : 30.0;
     double timeStep = parameters.count("TimeStep") ? parameters["TimeStep"] : 0.001;
@@ -91,9 +94,11 @@ void Simulation::runSimulation(const std::string& outputFolder) {
 
     // 4. Open CSV files for logging metrics and system states
     std::ofstream metricsFile(outputFolder + "/metrics.csv");
-    metricsFile << "Step,TotalSpin,SpinPerBird,AvgVelX,AvgVelY,TotalTangSpeed,Energy\n";
-
-    std::cout << "Starting simulation run for " << numBirds << " birds over " << totalSteps << " steps...\n";
+    if (!metricsFile.is_open()) {
+        std::cerr << "Error: Could not open metrics file in " << outputFolder << "\n";
+        return;
+    }
+    metricsFile << "Step,TotalSpin,SpinPerBird,AvgVelX,AvgVelY,TangentialSpeed,TotalEnergy\n";    std::cout << "Starting simulation run for " << numBirds << " birds over " << totalSteps << " steps...\n";
 
     for (int step = 0; step < totalSteps; ++step) {
         // Log metrics every N steps
