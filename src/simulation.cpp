@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <cmath>
 #include <stdexcept>
+#include <vector>
 
 Simulation::Simulation(const std::string& sim_file) {
     simulationConfigFile = sim_file;
@@ -130,52 +131,123 @@ void Simulation::runSimulation(const std::string& outputFolder) {
     flock.calculateForces(activeField);
     if (randomInitialConditions) flock.initializeAccelerations();
 
+    flock.saveEnvironment(outputFolder + "/environment.csv", timeStep);
+
     // 4. Open CSV files for logging metrics and system states
     std::ofstream metricsFile(outputFolder + "/metrics.csv");
     if (!metricsFile.is_open()) {
         std::cerr << "Error: Could not open metrics file in " << outputFolder << "\n";
         return;
     }
-    metricsFile << "Step,TotalSpin,SpinPerBird,AvgVelX,AvgVelY,TangentialSpeed,AvgRnorm,cmX,cmY,TotalEnergy\n";    std::cout << "Starting simulation run for " << numBirds << " birds over " << totalSteps << " steps...\n";
+    metricsFile << "Step,TotalSpin,SpinPerBird,AvgVelX,AvgVelY,TangentialSpeed,AvgRnorm,cmX,cmY,TotalEnergy,"
+                   "Polarization,RadiusGyration,MeanNeighborCount,NeighborCountVariance,SpinVariance,"
+                   "EnergyVariance\n";
+    std::cout << "Starting simulation run for " << numBirds << " birds over " << totalSteps << " steps...\n";
 
     for (int step = 0; step < totalSteps; ++step) {
         // Log metrics every N steps
         if (step % logSteps == 0) {
             double totalSpin = 0.0;
+            double sumSpinSquared = 0.0;
             double sumVelX = 0.0;
             double sumVelY = 0.0;
             double totalTangSpeed = 0.0;
             double totalRnorm = 0.0;
-            // New variables for Center of Mass
             double sumPosX = 0.0;
             double sumPosY = 0.0;
-            
+            double sumCosX = 0.0;
+            double sumSinX = 0.0;
+            double sumCosY = 0.0;
+            double sumSinY = 0.0;
+            double totalEnergy = 0.0;
+            double sumEnergySquared = 0.0;
+            double totalNeighborCount = 0.0;
+            double sumNeighborCountSquared = 0.0;
+            const double birdCount = static_cast<double>(flock.bandada.size());
+            const double interactionEnergyFactor =
+                coupling / (2.0 * maxSpeed * maxSpeed);
 
-
-            for (const auto& bird : flock.bandada) {
-                totalSpin += bird.getSpin(inertia, maxSpeed);
+            for (std::size_t idx = 0; idx < flock.bandada.size(); ++idx) {
+                const Bird& bird = flock.bandada[idx];
+                const double spin = bird.getSpin(inertia, maxSpeed);
+                totalSpin += spin;
+                sumSpinSquared += spin * spin;
                 sumVelX += bird.velocity.x;
                 sumVelY += bird.velocity.y;
-                
-                double rNorm = bird.position.getNorm();
+
+                const double rNorm = bird.position.getNorm();
                 totalRnorm += rNorm;
                 sumPosX += bird.position.x;
                 sumPosY += bird.position.y;
+                if (periodicBoundary) {
+                    const double xPhase = M_PI * bird.position.x / boxSize;
+                    const double yPhase = M_PI * bird.position.y / boxSize;
+                    sumCosX += std::cos(xPhase);
+                    sumSinX += std::sin(xPhase);
+                    sumCosY += std::cos(yPhase);
+                    sumSinY += std::sin(yPhase);
+                }
                 if (rNorm > 1e-12) {
                     // Tangential velocity relative to origin: (v x r) / |r|
                     totalTangSpeed += bird.velocity.crossProd(bird.position) / rNorm;
                 }
+
+                const std::vector<Bird> neighbors = flock.flocking(static_cast<int>(idx));
+                const double neighborCount = static_cast<double>(neighbors.size());
+                totalNeighborCount += neighborCount;
+                sumNeighborCountSquared += neighborCount * neighborCount;
+
+                double birdEnergy = spin * spin / (2.0 * inertia);
+                for (const Bird& neighbor : neighbors) {
+                    birdEnergy -= interactionEnergyFactor *
+                                  bird.velocity.dotProd(neighbor.velocity);
+                }
+                totalEnergy += birdEnergy;
+                sumEnergySquared += birdEnergy * birdEnergy;
             }
 
-            double spinPerBird = totalSpin / numBirds;
-            double avgVelX = sumVelX / numBirds;
-            double avgVelY = sumVelY / numBirds;
-            // Compute Center of Mass
-            double cmX = sumPosX / numBirds;
-            double cmY = sumPosY / numBirds;
-            double avgTangSpeed = totalTangSpeed / numBirds;
-            double totalEnergy = flock.totalEnergy();
-            double avgRnorm = totalRnorm / numBirds;
+            const double spinPerBird = totalSpin / birdCount;
+            const double avgVelX = sumVelX / birdCount;
+            const double avgVelY = sumVelY / birdCount;
+            const double cmX = periodicBoundary
+                ? (std::hypot(sumCosX, sumSinX) > 1e-12
+                    ? std::atan2(sumSinX, sumCosX) * boxSize / M_PI
+                    : 0.0)
+                : sumPosX / birdCount;
+            const double cmY = periodicBoundary
+                ? (std::hypot(sumCosY, sumSinY) > 1e-12
+                    ? std::atan2(sumSinY, sumCosY) * boxSize / M_PI
+                    : 0.0)
+                : sumPosY / birdCount;
+            const double avgTangSpeed = totalTangSpeed / birdCount;
+            const double avgRnorm = totalRnorm / birdCount;
+            const double meanEnergy = totalEnergy / birdCount;
+            const double meanNeighborCount = totalNeighborCount / birdCount;
+            double squaredRadiusFromCm = 0.0;
+            for (const Bird& bird : flock.bandada) {
+                double dx = bird.position.x - cmX;
+                double dy = bird.position.y - cmY;
+                if (periodicBoundary) {
+                    const double period = 2.0 * boxSize;
+                    dx = std::remainder(dx, period);
+                    dy = std::remainder(dy, period);
+                }
+                squaredRadiusFromCm += dx * dx + dy * dy;
+            }
+            const double radiusGyration =
+                std::sqrt(squaredRadiusFromCm / birdCount);
+            const double polarization =
+                std::hypot(avgVelX, avgVelY) / maxSpeed;
+            const double spinVariance = std::max(
+                0.0, sumSpinSquared / birdCount - spinPerBird * spinPerBird
+            );
+            const double energyVariance = std::max(
+                0.0, sumEnergySquared / birdCount - meanEnergy * meanEnergy
+            );
+            const double neighborCountVariance = std::max(
+                0.0, sumNeighborCountSquared / birdCount -
+                         meanNeighborCount * meanNeighborCount
+            );
 
             metricsFile << step << "," 
                         << totalSpin << "," 
@@ -186,15 +258,20 @@ void Simulation::runSimulation(const std::string& outputFolder) {
                         << avgRnorm << ","
                         << cmX << ","
                         << cmY << "," 
-                        << totalEnergy << "\n";
+                        << totalEnergy << ","
+                        << polarization << ","
+                        << radiusGyration << ","
+                        << meanNeighborCount << ","
+                        << neighborCountVariance << ","
+                        << spinVariance << ","
+                        << energyVariance << "\n";
         }
 
         // Save full system state snapshot every M steps
         if (step % saveSteps == 0) {
-            std::string snapEnv = outputFolder + "/env_step_" + std::to_string(step) + ".csv";
             std::string snapBirds = outputFolder + "/birds_step_" + std::to_string(step) + ".csv";
             std::string rngFile = outputFolder + "/rng_step_" + std::to_string(step) + ".bin";
-            flock.saveFile(const_cast<char*>(rngFile.c_str()), snapEnv, snapBirds, timeStep);
+            flock.saveFile(rngFile, snapBirds);
         }
 
         // Step the system forward, passing our modular ForceField pointer

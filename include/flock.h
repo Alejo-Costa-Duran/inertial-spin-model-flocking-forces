@@ -31,8 +31,9 @@ public:
     Flock(unsigned long int seed, double boxSize, double dt, double maxs, double iner, double fric, double T, double J, double N, double f, bool periodic = false);
     ~Flock();
 
-    void writeRng(char *c);
-    void saveFile(char *c, std::string envs, std::string birds, double dt);
+    void writeRng(const std::string& path);
+    void saveEnvironment(const std::string& path, double dt) const;
+    void saveFile(const std::string& rngPath, const std::string& birdsPath);
     void loadFile(FILE *rng, std::string envs, std::string birds);
     void randVecs(Bird &b);
     void boundary();

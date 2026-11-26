@@ -2,6 +2,7 @@
 #include "forcefield.h" // Include force field definitions
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <iomanip>
 #include <limits>
 #include <stdexcept>
@@ -40,25 +41,41 @@ void Flock::randVecs(Bird &b) {
     gsl_ran_bivariate_gaussian(m_mt, siga, sigv, rho, &b.randA.y, &b.randV.y);
 }
 
-void Flock::writeRng(char *c) {
-    FILE *rngFile = fopen(c, "wb");
-    if (rngFile) {
-        gsl_rng_fwrite(rngFile, m_mt);
-        fclose(rngFile);
+void Flock::writeRng(const std::string& path) {
+    FILE* rngFile = fopen(path.c_str(), "wb");
+    if (!rngFile) {
+        throw std::runtime_error("Could not open RNG state file for writing: " + path);
+    }
+
+    const int writeStatus = gsl_rng_fwrite(rngFile, m_mt);
+    const int closeStatus = fclose(rngFile);
+    if (writeStatus != 0 || closeStatus != 0) {
+        throw std::runtime_error("Could not write RNG state file: " + path);
     }
 }
 
-void Flock::saveFile(char *c, std::string envs, std::string birds, double dt) {
-    writeRng(c);
-
-    std::ofstream variables(envs);
+void Flock::saveEnvironment(const std::string& path, double dt) const {
+    std::ofstream variables(path);
+    if (!variables.is_open()) {
+        throw std::runtime_error("Could not open environment file for writing: " + path);
+    }
     variables << std::fixed << std::setprecision(17) 
               << inertia << "," << seed << "," << friction << "," << temperature << "," 
               << coupling << "," << numNeigh << "," << boxSize << "," << maxSpeed << "," << dt
               << "," << (periodicBoundary ? 1 : 0);
     variables.close();
+    if (!variables) {
+        throw std::runtime_error("Could not write environment file: " + path);
+    }
+}
 
-    std::ofstream data(birds);
+void Flock::saveFile(const std::string& rngPath, const std::string& birdsPath) {
+    writeRng(rngPath);
+
+    std::ofstream data(birdsPath);
+    if (!data.is_open()) {
+        throw std::runtime_error("Could not open bird snapshot for writing: " + birdsPath);
+    }
     for (size_t idx = 0; idx < bandada.size(); ++idx) {
         const Bird &b = bandada[idx];
         data << std::setprecision(18) 
@@ -69,6 +86,9 @@ void Flock::saveFile(char *c, std::string envs, std::string birds, double dt) {
              << b.randV.x << "," << b.randV.y << "\n";
     }
     data.close();
+    if (!data) {
+        throw std::runtime_error("Could not write bird snapshot: " + birdsPath);
+    }
 }
 
 void Flock::setConstants(double dt) {

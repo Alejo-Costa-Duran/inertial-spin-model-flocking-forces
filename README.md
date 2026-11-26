@@ -124,12 +124,14 @@ Neighbor selection is metric: agents within distance 1.0 are included, excluding
 
 Each batch run directory contains:
 
-- `metrics.csv` — rows sampled at `LogSteps`, with total spin, mean spin, mean velocity components, tangential speed, mean radius, center of mass, and total energy.
-- `env_step_N.csv` — model parameters, including the periodic-boundary flag, saved with each state snapshot.
+- `metrics.csv` — rows sampled at `LogSteps`, with the original spin, velocity, tangential-speed, radius, center-of-mass, and energy columns plus polarization, radius of gyration, neighbor-count statistics, and spin/energy variances.
+- `environment.csv` — static flock parameters (inertia, friction, temperature, interaction, box size, timestep, and boundary mode), written once per run.
 - `birds_step_N.csv` — per-agent position, velocity, acceleration, constraint multipliers, force, and noise values.
 - `rng_step_N.bin` — GSL random-number-generator state saved alongside each snapshot. A complete restart/load workflow is not currently implemented.
 
-Snapshots are written at step 0 and then every `SaveSteps`. Metric rows include the simulation step index; convert steps to time using `step * TimeStep`.
+Bird and RNG snapshots are written at step 0 and then every `SaveSteps`. Metric rows include the simulation step index; convert steps to time using `step * TimeStep`.
+
+`Polarization` is the magnitude of the mean velocity divided by `MaxSpeed`; `RadiusGyration` measures spread around the center of mass and uses periodic minimum-image distances in periodic runs. Neighbor-count, spin, and energy variances are population variances across birds at that sample.
 
 ## Implementation notes
 
