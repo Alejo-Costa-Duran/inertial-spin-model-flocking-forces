@@ -11,6 +11,21 @@ Pvector HarmonicConfinement::calculateForce(const Pvector& pos) const {
     return Pvector(-k0 * pos.x, -k0 * pos.y);
 }
 
+///Generalized harmonic confinement
+GeneralizedPowerConfinement::GeneralizedPowerConfinement(double s, double radius, int exponentN)
+    : strength(s), r0(radius), n(exponentN) {}
+
+Pvector GeneralizedPowerConfinement::calculateForce(const Pvector& pos) const {
+    double r2 = pos.dotProd(pos);
+    if (r2 < 1e-12) return Pvector(0, 0);
+
+    // Compute -s * (r^2 / r0^2)^(n-1) * (1 / r0^2)
+    double r_term = std::pow(r2 / (r0 * r0), n - 1);
+    double factor = -strength * r_term / (r0 * r0);
+
+    return Pvector(factor * pos.x, factor * pos.y);
+}
+
 // Quartic Confinement
 QuarticConfinement::QuarticConfinement(double s) : strength(s) {}
 

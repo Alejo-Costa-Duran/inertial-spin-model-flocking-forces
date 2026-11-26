@@ -17,6 +17,16 @@ public:
     Pvector calculateForce(const Pvector& pos) const override;
 };
 
+class GeneralizedPowerConfinement : public ForceField {
+private:
+    double strength;
+    double r0;
+    int n; // The exponent parameter (power is 2n)
+public:
+    GeneralizedPowerConfinement(double s, double radius, int exponentN);
+    Pvector calculateForce(const Pvector& pos) const override;
+};
+
 class QuarticConfinement : public ForceField {
     double strength;
 public:

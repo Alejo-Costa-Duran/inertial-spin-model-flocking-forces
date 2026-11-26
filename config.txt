@@ -1,19 +1,23 @@
 # Grid Sweep Parameters
-InertiaInit    0.001
-InertiaFinal   4.0
+InertiaInit    0.0001
+InertiaFinal   1.0
 InertiaSteps   2
-TempInit       0.0
-TempFinal      3
-TempSteps      30
+TempInit       0.00
+TempFinal      1.0
+TempSteps      10
 
 # Physics Base Parameters
-Seed           1337
-NumBirds       50
+Seed           137
+NumBirds       100
 TotalSteps     200000
-LogSteps       1000
+LogSteps       10
 SaveSteps      50000
-BoxSize        50.0
+BoxSize        30.0
 TimeStep       0.001
 Friction       1.0
 Interaction    1.0
 MaxSpeed       1.0
+QuarticK       100.0
+WellRadius     8.0
+WellExponent   6
+WellStrength   100
