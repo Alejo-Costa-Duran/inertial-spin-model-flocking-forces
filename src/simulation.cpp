@@ -1,10 +1,12 @@
 #include "simulation.h"
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <iomanip>
 #include <cmath>
+#include <stdexcept>
 
 Simulation::Simulation(const std::string& sim_file) {
     simulationConfigFile = sim_file;
@@ -38,7 +40,6 @@ void Simulation::readSimFile(const std::string& file) {
 
 void Simulation::runSimulation(const std::string& outputFolder) {
     // 1. Extract configuration parameters with default fallbacks
-    std::filesystem::create_directories(outputFolder);
     int seed = static_cast<int>(parameters.count("Seed") ? parameters["Seed"] : 42);
     int numBirds = static_cast<int>(parameters.count("NumBirds") ? parameters["NumBirds"] : 100);
     int totalSteps = static_cast<int>(parameters.count("TotalSteps") ? parameters["TotalSteps"] : 10000);
@@ -61,6 +62,10 @@ void Simulation::runSimulation(const std::string& outputFolder) {
     double quarticK = parameters.count("QuarticK") ? parameters["QuarticK"] : 0.0;
     double radialStr = parameters.count("RadialStr") ? parameters["RadialStr"] : 0.0;
     double swirlStr = parameters.count("SwirlStr") ? parameters["SwirlStr"] : 0.0;
+    bool periodicBoundary = parameters.count("PeriodicBoundary") &&
+                            parameters["PeriodicBoundary"] != 0.0;
+    bool randomInitialConditions = parameters.count("RandomInitialConditions") &&
+                                   parameters["RandomInitialConditions"] != 0.0;
 
     // 2. Build the modular ForceField structure dynamically
     auto compositeForce = std::make_shared<CompositeForce>();
@@ -82,20 +87,48 @@ void Simulation::runSimulation(const std::string& outputFolder) {
         hasForces = true;
     }
 
+    if (periodicBoundary && hasForces) {
+        throw std::invalid_argument(
+            "PeriodicBoundary=1 cannot be combined with active position-dependent force fields."
+        );
+    }
+
     const ForceField* activeField = hasForces ? compositeForce.get() : nullptr;
 
+    std::filesystem::create_directories(outputFolder);
+
     // 3. Initialize Flock and spawn birds in a swirling/circular initial distribution
-    Flock flock(seed, boxSize, timeStep, maxSpeed, inertia, friction, temperature, coupling, 1.0, 0.0);
+    Flock flock(seed, boxSize, timeStep, maxSpeed, inertia, friction, temperature, coupling, 1.0, 0.0, periodicBoundary);
 
     for (int idx = 0; idx < numBirds; ++idx) {
-        double r0 = 5.0 + (gsl_rng_uniform(flock.m_mt) * 5.0);
-        double theta0 = 2.0 * M_PI * gsl_rng_uniform(flock.m_mt);
-        Pvector pos(r0 * std::cos(theta0), r0 * std::sin(theta0));
-        Pvector vel(-maxSpeed * std::sin(theta0), maxSpeed * std::cos(theta0));
-        Pvector acc(-maxSpeed * maxSpeed * std::cos(theta0) / r0, -maxSpeed * maxSpeed * std::sin(theta0) / r0);
+        Pvector pos(0.0, 0.0);
+        Pvector vel(0.0, 0.0);
+        Pvector acc(0.0, 0.0);
+        if (randomInitialConditions) {
+            const double initialRadius = std::min(WellRadius, boxSize);
+            const double radialSample = initialRadius * std::sqrt(gsl_rng_uniform(flock.m_mt));
+            const double positionAngle = 2.0 * M_PI * gsl_rng_uniform(flock.m_mt);
+            pos.x = radialSample * std::cos(positionAngle);
+            pos.y = radialSample * std::sin(positionAngle);
+            const double heading = 2.0 * M_PI * gsl_rng_uniform(flock.m_mt);
+            vel.x = maxSpeed * std::cos(heading);
+            vel.y = maxSpeed * std::sin(heading);
+        } else {
+            const double r0 = 5.0 + (gsl_rng_uniform(flock.m_mt) * 5.0);
+            const double theta0 = 2.0 * M_PI * gsl_rng_uniform(flock.m_mt);
+            pos.x = r0 * std::cos(theta0);
+            pos.y = r0 * std::sin(theta0);
+            vel.x = -maxSpeed * std::sin(theta0);
+            vel.y = maxSpeed * std::cos(theta0);
+            acc.x = -maxSpeed * maxSpeed * std::cos(theta0) / r0;
+            acc.y = -maxSpeed * maxSpeed * std::sin(theta0) / r0;
+        }
         
-        flock.bandada.push_back(Bird(false, idx, pos, vel, acc, inertia, maxSpeed, boxSize));
+        flock.bandada.push_back(Bird(false, idx, pos, vel, acc));
     }
+    if (periodicBoundary) flock.boundary();
+    flock.calculateForces(activeField);
+    if (randomInitialConditions) flock.initializeAccelerations();
 
     // 4. Open CSV files for logging metrics and system states
     std::ofstream metricsFile(outputFolder + "/metrics.csv");

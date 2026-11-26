@@ -4,6 +4,8 @@ project(ism_swirl_dynamics CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+include(CTest)
+
 # Option to enable/disable SFML visualization (useful for headless servers)
 option(ENABLE_VISUALIZATION "Build the interactive SFML visualizer target" ON)
 
@@ -20,6 +22,12 @@ add_library(ism_core
 )
 target_include_directories(ism_core PUBLIC include)
 target_link_libraries(ism_core PUBLIC GSL::gsl GSL::gslcblas)
+
+if(BUILD_TESTING)
+    add_executable(ism_adaptive_integration_test tests/adaptive_integration_test.cpp)
+    target_link_libraries(ism_adaptive_integration_test PRIVATE ism_core)
+    add_test(NAME adaptive_integration COMMAND ism_adaptive_integration_test)
+endif()
 
 # 2. Headless Batch Simulation Executable (No SFML required)
 add_executable(ism_batch src/main.cpp)

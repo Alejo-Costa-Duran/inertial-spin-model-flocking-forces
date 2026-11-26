@@ -5,6 +5,7 @@
 #include <cmath>
 #include <iomanip>
 #include <sstream>
+#include <exception>
 
 std::vector<double> linspace(double start, double end, int num) {
     std::vector<double> vec;
@@ -38,7 +39,9 @@ int main(int arg_count, char* args[]) {
         std::vector<double> inertias = linspace(chi_init, chi_final, chi_steps);
         std::vector<double> temperatures = linspace(temp_init, temp_final, temp_steps);
         
-        s.set_par("QuarticK", 0.5);   
+        const bool periodicBoundary = s.parameters.count("PeriodicBoundary") &&
+                                      s.parameters["PeriodicBoundary"] != 0.0;
+        s.set_par("QuarticK", periodicBoundary ? 0.0 : 0.5);
         s.set_par("HarmonicK", 0.0);  
         s.set_par("RadialStr",  0.0);  
         s.set_par("SwirlStr",   0.0);   
@@ -66,7 +69,12 @@ int main(int arg_count, char* args[]) {
                 counter++;
                 
                 auto start = std::chrono::high_resolution_clock::now();
-                s.runSimulation(run_folder); // Pass the unique run folder!
+                try {
+                    s.runSimulation(run_folder);
+                } catch (const std::exception& error) {
+                    std::cerr << "Simulation failed: " << error.what() << "\n";
+                    return 1;
+                }
                 auto stop = std::chrono::high_resolution_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
                 

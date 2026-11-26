@@ -13,8 +13,11 @@ private:
     int windowWidth_;
     int windowHeight_;
     double boxSize_;
+    double viewRadius_;
     std::map<std::string, double> parameters_;
+    static constexpr int parameterPanelWidth_ = 300;
 
     void readConfig(const std::string& file);
+    double pixelsPerUnit() const;
     sf::Vector2f mapToScreen(double x, double y) const;
 };

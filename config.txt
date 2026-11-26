@@ -5,19 +5,24 @@ InertiaSteps   2
 TempInit       0.00
 TempFinal      1.0
 TempSteps      10
+# Visualizer-only inertia; prevents the batch sweep minimum from becoming its default.
+VisualOmega    1.0
 
 # Physics Base Parameters
-Seed           137
-NumBirds       100
+Seed           130
+NumBirds       50
+# 1 = random positions inside the well/headings, 0 = swirling initial ring
+RandomInitialConditions 0
 TotalSteps     200000
 LogSteps       10
 SaveSteps      50000
-BoxSize        30.0
+BoxSize        20.0
+# 0 = open boundaries, 1 = periodic boundaries
+PeriodicBoundary 0
 TimeStep       0.001
 Friction       1.0
 Interaction    1.0
 MaxSpeed       1.0
-QuarticK       100.0
 WellRadius     8.0
 WellExponent   6
 WellStrength   100

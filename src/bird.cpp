@@ -1,13 +1,10 @@
 #include "bird.h"
 #include "forcefield.h" // Include the new force field definitions
 #include <cmath>
-Bird::Bird(bool fix, int idx, Pvector position, Pvector velocity, Pvector acc, double inertia, double maxSpeed, double length)
-    : fixed(fix), idx(idx), position(position), velocity(velocity), acc(acc), 
-      boxX(0), boxY(0), lambda(0.0), mu(0.0) 
+Bird::Bird(bool fix, int idx, Pvector position, Pvector velocity, Pvector acc)
+    : position(position), velocity(velocity), acc(acc), idx(idx),
+      lambda(0.0), mu(0.0), fixed(fix)
 {
-    boundary(length, length);
-    boxX = static_cast<int>(std::floor((position.x + length) * std::floor(2 * length) / (2 * length)));
-    boxY = static_cast<int>(std::floor((position.y + length) * std::floor(2 * length) / (2 * length)));
     deltaV = Pvector(0, 0);
     randA = Pvector(0, 0);
     randV = Pvector(0, 0);
@@ -81,16 +78,28 @@ double Bird::getSpin(double inertia, double maxSpeed) const {
 }
 
 void Bird::boundary(double lengthX, double lengthY) {
-    if (position.x > lengthX)  { position.x -= 2 * lengthX; }
-    if (position.y > lengthY)  { position.y -= 2 * lengthY; }
-    if (position.x < -lengthX) { position.x += 2 * lengthX; }
-    if (position.y < -lengthY) { position.y += 2 * lengthY; }
+    auto wrap = [](double coordinate, double halfLength) {
+        const double period = 2.0 * halfLength;
+        double wrapped = std::fmod(coordinate + halfLength, period);
+        if (wrapped < 0.0) wrapped += period;
+        return wrapped - halfLength;
+    };
+
+    position.x = wrap(position.x, lengthX);
+    position.y = wrap(position.y, lengthY);
 }
 
-double Bird::getDistance(const Bird& vecino, double length) const {
+double Bird::getDistance(const Bird& vecino, double length, bool periodicBoundary) const {
     double deltaX = std::abs(position.x - vecino.position.x);
-    if (deltaX > length) { deltaX = deltaX - 2 * length; }
     double deltaY = std::abs(position.y - vecino.position.y);
-    if (deltaY > length) { deltaY = deltaY - 2 * length; }
+
+    if (periodicBoundary) {
+        const double period = 2.0 * length;
+        deltaX = std::fmod(deltaX, period);
+        deltaY = std::fmod(deltaY, period);
+        if (deltaX > length) deltaX = period - deltaX;
+        if (deltaY > length) deltaY = period - deltaY;
+    }
+
     return std::sqrt(deltaX * deltaX + deltaY * deltaY);
 }
