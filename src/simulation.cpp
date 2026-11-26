@@ -1,4 +1,5 @@
 #include "simulation.h"
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -10,7 +11,7 @@ Simulation::Simulation(const std::string& sim_file) {
     readSimFile(simulationConfigFile);
 }
 
-void Simulation::set_par(std::string par, double value) {
+void Simulation::set_par(const std::string& par, double value) {
     parameters[par] = value;
 }
 
@@ -37,11 +38,13 @@ void Simulation::readSimFile(const std::string& file) {
 
 void Simulation::runSimulation(const std::string& outputFolder) {
     // 1. Extract configuration parameters with default fallbacks
+    std::filesystem::create_directories(outputFolder);
     int seed = static_cast<int>(parameters.count("Seed") ? parameters["Seed"] : 42);
     int numBirds = static_cast<int>(parameters.count("NumBirds") ? parameters["NumBirds"] : 100);
     int totalSteps = static_cast<int>(parameters.count("TotalSteps") ? parameters["TotalSteps"] : 10000);
     int logSteps = static_cast<int>(parameters.count("LogSteps") ? parameters["LogSteps"] : 100);
     int saveSteps = static_cast<int>(parameters.count("SaveSteps") ? parameters["SaveSteps"] : 1000);
+
     
     double boxSize = parameters.count("BoxSize") ? parameters["BoxSize"] : 30.0;
     double timeStep = parameters.count("TimeStep") ? parameters["TimeStep"] : 0.001;
@@ -50,7 +53,9 @@ void Simulation::runSimulation(const std::string& outputFolder) {
     double temperature = parameters.count("Temperature") ? parameters["Temperature"] : 0.0;
     double coupling = parameters.count("Interaction") ? parameters["Interaction"] : 1.0;
     double maxSpeed = parameters.count("MaxSpeed") ? parameters["MaxSpeed"] : 1.0;
-
+    double WellStrength = parameters.count("WellStrength") ? parameters["WellStrength"] : 0.0;
+    int WellExponent = parameters.count("WellExponent") ? parameters["WellExponent"] : 12;
+    double WellRadius = parameters.count("WellRadius") ? parameters["WellRadius"] : 10.0;
     // Force parameters
     double harmonicK = parameters.count("HarmonicK") ? parameters["HarmonicK"] : 0.0;
     double quarticK = parameters.count("QuarticK") ? parameters["QuarticK"] : 0.0;
@@ -60,7 +65,10 @@ void Simulation::runSimulation(const std::string& outputFolder) {
     // 2. Build the modular ForceField structure dynamically
     auto compositeForce = std::make_shared<CompositeForce>();
     bool hasForces = false;
-
+    if (WellStrength > 0.0) {
+        compositeForce->addForce(std::make_shared<GeneralizedPowerConfinement>(WellStrength, WellRadius, WellExponent));
+        hasForces = true;
+    }
     if (harmonicK > 0.0) {
         compositeForce->addForce(std::make_shared<HarmonicConfinement>(harmonicK));
         hasForces = true;
@@ -91,9 +99,11 @@ void Simulation::runSimulation(const std::string& outputFolder) {
 
     // 4. Open CSV files for logging metrics and system states
     std::ofstream metricsFile(outputFolder + "/metrics.csv");
-    metricsFile << "Step,TotalSpin,SpinPerBird,AvgVelX,AvgVelY,TotalTangSpeed,Energy\n";
-
-    std::cout << "Starting simulation run for " << numBirds << " birds over " << totalSteps << " steps...\n";
+    if (!metricsFile.is_open()) {
+        std::cerr << "Error: Could not open metrics file in " << outputFolder << "\n";
+        return;
+    }
+    metricsFile << "Step,TotalSpin,SpinPerBird,AvgVelX,AvgVelY,TangentialSpeed,AvgRnorm,cmX,cmY,TotalEnergy\n";    std::cout << "Starting simulation run for " << numBirds << " birds over " << totalSteps << " steps...\n";
 
     for (int step = 0; step < totalSteps; ++step) {
         // Log metrics every N steps
@@ -102,13 +112,22 @@ void Simulation::runSimulation(const std::string& outputFolder) {
             double sumVelX = 0.0;
             double sumVelY = 0.0;
             double totalTangSpeed = 0.0;
+            double totalRnorm = 0.0;
+            // New variables for Center of Mass
+            double sumPosX = 0.0;
+            double sumPosY = 0.0;
+            
+
 
             for (const auto& bird : flock.bandada) {
                 totalSpin += bird.getSpin(inertia, maxSpeed);
                 sumVelX += bird.velocity.x;
                 sumVelY += bird.velocity.y;
-
+                
                 double rNorm = bird.position.getNorm();
+                totalRnorm += rNorm;
+                sumPosX += bird.position.x;
+                sumPosY += bird.position.y;
                 if (rNorm > 1e-12) {
                     // Tangential velocity relative to origin: (v x r) / |r|
                     totalTangSpeed += bird.velocity.crossProd(bird.position) / rNorm;
@@ -118,15 +137,22 @@ void Simulation::runSimulation(const std::string& outputFolder) {
             double spinPerBird = totalSpin / numBirds;
             double avgVelX = sumVelX / numBirds;
             double avgVelY = sumVelY / numBirds;
+            // Compute Center of Mass
+            double cmX = sumPosX / numBirds;
+            double cmY = sumPosY / numBirds;
             double avgTangSpeed = totalTangSpeed / numBirds;
             double totalEnergy = flock.totalEnergy();
+            double avgRnorm = totalRnorm / numBirds;
 
             metricsFile << step << "," 
                         << totalSpin << "," 
                         << spinPerBird << "," 
                         << avgVelX << "," 
                         << avgVelY << "," 
-                        << avgTangSpeed << "," 
+                        << avgTangSpeed << ","
+                        << avgRnorm << ","
+                        << cmX << ","
+                        << cmY << "," 
                         << totalEnergy << "\n";
         }
 

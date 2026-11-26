@@ -21,12 +21,6 @@ Flock::~Flock() {
     }
 }
 
-Flock::~Flock() {
-    if (m_mt) {
-        gsl_rng_free(m_mt);
-    }
-}
-
 void Flock::loadFile(FILE *rng, std::string env, std::string birds) {
     gsl_rng_fread(rng, m_mt);
     std::ifstream ifs(env, std::ifstream::in);
@@ -133,7 +127,7 @@ double Flock::totalTangSpeed() const {
     return tang / bandada.size();
 }
 
-std::vector<Bird> Flock::flocking(int index) {
+std::vector<Bird> Flock::flocking(int index) const {
     const Bird &pajaro = bandada[index];
     std::vector<Bird> vecinos;
     int box = static_cast<int>(2.0 * boxSize - 1.0);

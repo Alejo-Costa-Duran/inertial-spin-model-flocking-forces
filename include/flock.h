@@ -34,7 +34,7 @@ public:
     void randVecs(Bird &b);
     void boundary();
     void circularBoundary(double innerRad, double outerRad);
-    std::vector<Bird> flocking(int index);
+    std::vector<Bird> flocking(int index) const;
     
     // >> UPDATE THIS SIGNATURE <<
     void updateFlock(double dt, const ForceField* forceField);

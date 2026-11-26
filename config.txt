@@ -1,16 +1,23 @@
-Seed           1337
-NumBirds       150
-TotalSteps     10000
-LogSteps       100
-SaveSteps      1000
-BoxSize        50.0
+# Grid Sweep Parameters
+InertiaInit    0.0001
+InertiaFinal   1.0
+InertiaSteps   2
+TempInit       0.00
+TempFinal      1.0
+TempSteps      10
+
+# Physics Base Parameters
+Seed           137
+NumBirds       100
+TotalSteps     200000
+LogSteps       10
+SaveSteps      50000
+BoxSize        30.0
 TimeStep       0.001
-Inertia        0.8
 Friction       1.0
-Temperature    0.05
 Interaction    1.0
 MaxSpeed       1.0
-HarmonicK      0.0
-QuarticK       0.02    # Steep r^4 confinement well
-RadialStr      0.005   # Central attraction/repulsion force
-SwirlStr       0.15    # Tangential swirling force component
+QuarticK       100.0
+WellRadius     8.0
+WellExponent   6
+WellStrength   100
